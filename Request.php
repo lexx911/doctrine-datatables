@@ -20,9 +20,14 @@ class Request
      */
     public function get($name, $index = null, $default = null)
     {
-        $name .= (null !== $index ? '_' . $index : '');
+        #$name .= (null !== $index ? '_' . $index : '');
         if (isset($this->request[$name])) {
-            return $this->request[$name];
+            $value = $this->request[$name];
+            if ($index !== null) {
+                return $value[$index];
+            } else {
+                return $value;
+            }
         }
 
         return $default;

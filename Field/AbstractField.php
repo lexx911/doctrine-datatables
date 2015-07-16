@@ -17,18 +17,6 @@ abstract class AbstractField
     protected $parent;
 
     /**
-     * @var bool
-     */
-    protected $searchable = true;
-
-    /**
-     * Search string for this column
-     *
-     * @var string
-     */
-    protected $search;
-
-    /**
      * Field path
      *
      * @var array
@@ -51,6 +39,11 @@ abstract class AbstractField
      * @var array
      */
     protected $options = array();
+
+    /**
+     * @var array
+     */
+    protected $column = array();
 
     /**
      * @var Table
@@ -77,6 +70,7 @@ abstract class AbstractField
 
     /**
      * @param Entity $entity
+     * @return AbstractField $this
      */
     public function setParent(Entity $entity)
     {
@@ -93,24 +87,16 @@ abstract class AbstractField
         return $this->parent;
     }
 
-    public function setSearch($search)
+    public function getColumn()
     {
-        $this->search = $search;
-
-        return $this;
+        $this->column = $this->column ?: $this->getTable()->getRequest()->get('columns', $this->getIndex());
+        return $this->column;
     }
 
     public function getSearch()
     {
-        return isset($this->search) ? $this->search : $this->getTable()->getRequest()->get('sSearch', $this->getIndex());
-    }
-
-    /**
-     * @param bool $searchable
-     */
-    public function setSearchable($searchable)
-    {
-        $this->searchable = $searchable;
+        $column = $this->getColumn();
+        return isset($column['search']['value']) ? $column['search']['value'] : '';
     }
 
     /**
@@ -120,7 +106,8 @@ abstract class AbstractField
      */
     public function isSearchable()
     {
-        return isset($this->searchable) ? $this->searchable : (bool) $this->getTable()->getRequest()->get('bSearchable', $this->getIndex());
+        $column = $this->getColumn();
+        return (bool) isset($column['searchable']) ? $column['searchable'] : false;
     }
 
     public function isSearch()
@@ -138,7 +125,7 @@ abstract class AbstractField
         $orx = $qb->expr()->orX();
         foreach ($this->getSearchFields() as $i => $field) {
             $var = preg_replace('/[^a-z0-9]*/i', '', $field) . '_' . $i;
-            $qb->setParameter($var, '%'.$this->getSearch().'%');
+            $qb->setParameter($var, $this->getSearch());
             $orx->add(
                 $qb->expr()->like($field, ':' . $var)
             );
@@ -208,7 +195,8 @@ abstract class AbstractField
 
     public function isSortable()
     {
-        return (bool) $this->getTable()->getRequest()->get('bSortable', $this->getIndex());
+        $column = $this->getColumn();
+        return (bool) isset($column['orderable'])? $column['orderable'] : false;
     }
 
     /**
@@ -217,9 +205,10 @@ abstract class AbstractField
      */
     public function order(QueryBuilder $qb)
     {
-        for ($i = 0; $i < $this->getTable()->getRequest()->get('iSortingCols'); $i++) {
-            if ($this->getTable()->getRequest()->get('iSortCol', $i) == $this->getIndex()) {
-                $dir = $this->getTable()->getRequest()->get('sSortDir', $i);
+        $orderColumns = $this->getTable()->getRequest()->get('order');
+        foreach ($orderColumns as $order) {
+            if ($order['column'] == $this->getIndex()) {
+                $dir = $order['dir'];
                 foreach ($this->getSelect() as $entityAlias => $fields) {
                     foreach ($fields as $field) {
                         if (strpos(strtolower($field), ' as ') !== false) {

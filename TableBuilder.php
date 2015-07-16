@@ -20,6 +20,11 @@ class TableBuilder
     private $table;
 
     /**
+     * @var array
+     */
+    private $columns;
+
+    /**
      * @var FieldRegistry
      */
     private $registry;
@@ -160,14 +165,78 @@ class TableBuilder
         return $this;
     }
 
-    private function _join($fullName, $alias, $type)
+    /**
+     * @param string $name Name of field as defined in datatables columns
+     * @param string type Type of filter: text, date, number etc. See FieldRegistry::registerStandardFields()
+     * @param string $select Name of field for SELECT clause (supported dot notation for relations)
+     * @param string $filter Name of field for WHERE clause (optional, set = $select if true or null)
+     * @param array $options
+     * @return $this
+     * @throws \Exception
+     * @see FieldRegistry
+     */
+    public function add($name, $type = 'text', $select = null, $filter = null, $options = array())
     {
-        if (null !== $this->table->getIndex()) {
-            $index = $this->getTable()->getIndex();
-        } else {
-            $index = count($this->getTable()->getFields());
+        if (null === $select) {
+            if (strpos($name, '.') === false) {
+                $select = [ $this->getTable()->getAlias() . '.' . $name ];
+            } else {
+                $select = [ $name ];
+            }
+        }
+        if (null === $filter) {
+            $filter = $select;
         }
 
+        if (!is_array($select)) {
+            $select = explode(',', $select);
+        }
+        foreach ($select as $key => $value) {
+            if (is_numeric($key)) {
+                if (strpos(strtolower($value), ' as ') !== false || strpos($value, '.') === false) { // check for non entity field
+                    $parentAlias = '';
+                    $fieldName = $value;
+                } else {
+                    list($parentAlias, $fieldName) = explode('.', trim($value));
+                    if (!isset($select[trim($parentAlias)])) {
+                        $select[trim($parentAlias)] = array();
+                    }
+                }
+                $select[trim($parentAlias)][] = $fieldName;
+                unset($select[$key]);
+            }
+        }
+
+        if (!is_array($filter)) {
+            $filter = explode(',', $filter);
+            foreach ($filter as $key => $value) {
+                if (strpos($value, '.') === false) {
+                    $filter[$key] = $this->getTable()->getAlias() . '.' . $value;
+                }
+            }
+        }
+
+        $index = $this->getColumnIndex($name);
+        /**
+         * @var AbstractField $field
+         */
+        $field = $this->registry->resolve($type, $this->getTable(), $options);
+        $field->setIndex($index);
+        $field->setSelect($select);
+        $field->setSearchFields($filter);
+        if (isset($options['template'])) {
+            $field->setTemplate($options['template']);
+        }
+        if (isset($options['context'])) {
+            $field->setContext($options['context']);
+        }
+        $this->getTable()->setField($name, $field);
+
+        return $this;
+    }
+
+    private function _join($fullName, $alias, $type)
+    {
         list($parentAlias, $name) = explode('.', $fullName);
         $parent = $this->getTable()->getEntity($parentAlias);
         if (!$parent) {
@@ -190,81 +259,14 @@ class TableBuilder
         return $this;
     }
 
-    /**
-     * @param  string $name Name of field (supported dot notation for relations)
-     * @param  string $type Type of field
-     * @return $this
-     */
-    public function add($type, $select = null, $filter = true, $options = array())
+    private function getColumnIndex($name)
     {
-        if (null !== $this->getTable()->getIndex()) {
-            $index = $this->getTable()->getIndex();
-        } else {
-            $index = count($this->getTable()->getFields());
-        }
-
-        $name = $this->request->get('mDataProp', $index) ?: $index;
-
-        if (true === $filter || null === $filter) {
-            $filter = $select;
-        }
-
-        if (empty($select)) {
-            $select = array();
-        } else {
-            if (!is_array($select)) {
-                $select = explode(',', $select);
-            }
-            foreach ($select as $key => $value) {
-                if (is_numeric($key)) {
-                    if (strpos(strtolower($value), ' as ') === false) { // check for non entity field
-                        list($parentAlias, $fieldName) = explode('.', trim($value));
-                        if (!isset($select[trim($parentAlias)])) {
-                            $select[trim($parentAlias)] = array();
-                        }
-                    } else {
-                        $parentAlias = '';
-                        $fieldName   = $value;
-                    }
-                    $select[trim($parentAlias)][] = $fieldName;
-                    unset($select[$key]);
-                }
+        $this->columns = $this->columns ?: $this->request->get("columns");
+        foreach($this->columns as $index => $value) {
+            if ($value['data'] == $name) {
+                return $index;
             }
         }
-        if (empty($filter)) {
-            $filter = array();
-        } else {
-            if (!is_array($filter)) {
-                $filter = explode(',', $filter);
-                foreach ($filter as $key => $value) {
-                    if (strpos($value, '.') === false) {
-                        throw new \Exception("Filter must contain entity alias, '" . $filter . "' given");
-                    }
-                }
-            }
-
-            /*foreach ($filter as $key => $value) {
-                if (!is_numeric($key)) {
-                    $filter[] = $key . '.' . $value;
-                    unset($filter[$key]);
-                }
-            }*/
-        }
-        /**
-         * @var AbstractField $field
-         */
-        $field = $this->registry->resolve($type, $this->getTable(), $options);
-        $field->setIndex($index);
-        $field->setSelect($select);
-        $field->setSearchFields($filter);
-        if (isset($options['template'])) {
-            $field->setTemplate($options['template']);
-        }
-        if (isset($options['context'])) {
-            $field->setContext($options['context']);
-        }
-        $this->getTable()->setField($name, $field);
-
-        return $this;
+        return count($this->getTable()->getFields());
     }
 }

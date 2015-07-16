@@ -69,6 +69,7 @@ class FieldRegistry
     {
         $this->register("empty", '\\NeuroSYS\\DoctrineDatatables\\Field\\EmptyField');
         $this->register("text", '\\NeuroSYS\\DoctrineDatatables\\Field\\TextField');
+        $this->register("index", '\\NeuroSYS\\DoctrineDatatables\\Field\\TextIndexField');
         $this->register("number", '\\NeuroSYS\\DoctrineDatatables\\Field\\NumberField');
         $this->register("choice", '\\NeuroSYS\\DoctrineDatatables\\Field\\ChoiceField');
         $this->register("boolean", '\\NeuroSYS\\DoctrineDatatables\\Field\\BooleanField');

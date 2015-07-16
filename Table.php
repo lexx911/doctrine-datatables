@@ -14,6 +14,7 @@ class Table extends Entity
 {
     const HYDRATE_ARRAY  = 'array';
     const HYDRATE_ENTITY = 'entity';
+    const PRIMARY_KEY_FIELD = 'ID';
 
     /**
      * @var EntityManager
@@ -81,8 +82,8 @@ class Table extends Entity
         $this->em       = $em;
         $this->request  = $request;
         $this->setRenderer($renderer);
-        $this->setMaxResults($request->get('iDisplayLength'));
-        $this->setFirstResult($request->get('iDisplayStart'));
+        $this->setMaxResults($request->get('length'));
+        $this->setFirstResult($request->get('start'));
         $this->hints = array();
     }
 
@@ -229,13 +230,13 @@ class Table extends Entity
 
         if ($hydrate == 'array') {
             $results = $query->getArrayResult();
+            foreach ($results as $i => $result) {
+                $results[$i] = $this->formatResult($result, $hydrate);
+            }
         } else {
             $results = $query->getResult();
         }
 
-        foreach ($results as $i => $result) {
-            $results[$i] = $this->formatResult($result, $hydrate);
-        }
         return $results;
     }
 
@@ -352,7 +353,7 @@ class Table extends Entity
      */
     public function getCountAllResults()
     {
-        $rootEntityIdentifier = 'id'; // FIXME: fetch it from Metadata
+        $rootEntityIdentifier = self::PRIMARY_KEY_FIELD; // FIXME: fetch it from Metadata
 
         $qb = clone $this->getQueryBuilder();
         $qb->select('COUNT(DISTINCT ' . $this->getAlias() . '.' . $rootEntityIdentifier . ')');
@@ -376,7 +377,7 @@ class Table extends Entity
      */
     public function getCountFilteredResults()
     {
-        $rootEntityIdentifier = 'id'; // FIXME: fetch it from Metadata
+        $rootEntityIdentifier = self::PRIMARY_KEY_FIELD; // FIXME: fetch it from Metadata
 
         $qb = clone $this->getQueryBuilder();
         $qb->select('COUNT(DISTINCT ' . $this->getAlias() . '.' . $rootEntityIdentifier . ')');
@@ -399,10 +400,10 @@ class Table extends Entity
     public function getResponseArray($hydration = self::HYDRATE_ARRAY)
     {
         return array(
-            'sEcho'                => $this->request->get('sEcho'),
-            'aaData'               => $this->getData($hydration),
-            "iTotalRecords"        => $this->getCountAllResults(),
-            "iTotalDisplayRecords" => $this->getCountFilteredResults()
+            'draw'             => $this->request->get('draw'),
+            'data'              => $this->getData($hydration),
+            "recordsTotal"      => $this->getCountAllResults(),
+            "recordsFiltered"   => $this->getCountFilteredResults()
         );
     }
 
@@ -464,7 +465,7 @@ class Table extends Entity
                 $qb->addSelect($names);
                 $this->basePropertyPath = '[0]'; // dirty fix for custom fields being fetched
             } else {
-                array_unshift($names, 'id');
+                array_unshift($names, self::PRIMARY_KEY_FIELD);
                 $qb->addSelect('partial ' . $alias . '.{' . implode(',', array_unique($names)) . '}');
             }
         }

@@ -1,7 +1,7 @@
-Doctrine Datatables library [![Build Status](https://travis-ci.org/neurosys-pl/doctrine-datatables.png)](https://travis-ci.org/neurosys-pl/doctrine-datatables)
+Doctrine Datatables library
 ===========================
 
-Doctrine Datatables library provides a Doctrine2 server side processing for [Datatables](http://datatables.net/).
+Doctrine Datatables library provides a Doctrine2 server side processing for [Datatables](http://datatables.net/) Version 1.10.x.
 
 This library was created because existing libraries lack of flexibility around field types and field filtering.
 This library does not provide any JavaScript code generation nor datatables.js sources, you need to install and run datatables.js yourself.
@@ -12,7 +12,7 @@ Installation
 You can install this library using composer
 
 ```
-composer require neurosys/doctrine-datatables
+composer require lexx911/doctrine-datatables
 ```
 
 or add the package name to your composer.json
@@ -20,7 +20,7 @@ or add the package name to your composer.json
 ```js
 "require": {
     ...
-    "neurosys/doctrine-datatables": "dev-master"
+    "lexx911/doctrine-datatables": "dev-master"
 }
 ```
 
@@ -37,9 +37,10 @@ Usage
 $builder = new TableBuilder($entityManager, $_GET);
 $builder
     ->from('Foo\Bar\Entity\Sample', 's')
-    ->add('text', 's.name')      // field name will be resolved from request (mDataProp_X)
-    ->add('number', 's.price')   // field will be a number field which can be filtered by value range
-    ->add('boolean', 's.active')
+    ->leftJoin('s.oneToManyField', 'x')
+    ->add('name')              // field will be a text field filtered with LIKE "%value%"
+    ->add('price', 'number')   // field will be a number field which can be filtered by value range
+    ->add('refs', 'text', 'x', 'x.otherField') // filter by field of a one-to-many relation
     ;
 
 $response = $builder->getTable()
@@ -57,9 +58,9 @@ Composed fields example:
 $builder
     ->from('Foo\Bar\Entity\Sample', 's')
     ->join('s.user', 'u')
-    ->add('text', 's.name')                          // select and filter by a name field
-    ->add('text', 'u.firstName, u.lastName', 'u.id') // select firstName and lastName but filter by an id field
-    ->add('date')
+    ->add('name')                          // select and filter by a name field
+    ->add('username', 'text', 'u.firstName, u.lastName', 'u.id') // select firstName and lastName but filter by an id field
+    ->add('modifiedOn', 'date')
     ;
 ```
 
@@ -67,7 +68,7 @@ Custom query builder example:
 ```php
 $responseArray = $builder
     ->setQueryBuilder($customQueryBuilder)
-    ->add('text', 's.foo', 's.bar') // select foo field but filter by a bar field
+    ->add('foo', 'text', 's.foo', 's.bar') // select foo field but filter by a bar field
     ->getTable()
     ->getResponseArray();
 ```
@@ -76,6 +77,7 @@ Available field types
 ---------------------
 
  * text
+ * index (like text but filter with LIKE "value%". Database indexs can be used this way)
  * number
  * date
  * boolean

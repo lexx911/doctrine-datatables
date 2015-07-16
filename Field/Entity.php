@@ -207,7 +207,7 @@ class Entity extends AbstractField
     {
         //$metadata = $this->getTable()->getManager()->getClassMetadata($this->getClassName());
         //return $metadata->getIdentifierFieldNames();
-        return array('id'); // FIXME
+        return array('ID'); // FIXME
     }
 
     public function isJoined(QueryBuilder $qb)
